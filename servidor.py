@@ -32,10 +32,23 @@ def analizar_pdf():
         text = "\n".join([page.extract_text() or "" for page in reader.pages])
 
         prompt = f"""
-Eres un nutricionista y entrenador personal que trabaja en Colombia. 
-Con base en este examen médico, genera una tabla con:
-- Recomendaciones alimenticias en comida colombiana (desayuno, comida, cena)
-- Actividad física adecuada (tipo, frecuencia y duración).
+Eres un nutricionista y entrenador personal que trabaja en Colombia.
+
+Con base en este examen médico, responde con **una tabla en formato Markdown**, organizada de la siguiente manera:
+
+1. Una tabla con recomendaciones alimenticias usando comida típica colombiana. Columnas:
+   - Comida (Desayuno, Almuerzo, Cena)
+   - Platillo recomendado
+   - Motivo (relacionado con el examen)
+
+2. Una tabla con recomendaciones de actividad física. Columnas:
+   - Tipo de actividad
+   - Frecuencia semanal
+   - Duración por sesión
+   - Motivo médico
+
+**Solo devuelve las dos tablas. No incluyas explicaciones adicionales.**
+
 Texto del examen médico:
 {text[:3000]}
         """
