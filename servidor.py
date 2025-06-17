@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")
-HUGGINGFACE_MODEL = "google/flan-t5-large"
+HUGGINGFACE_MODEL = "google/flan-t5-large"  # modelo confirmado activo en la API pública
 
 headers = {
     "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
@@ -18,7 +18,7 @@ headers = {
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "API médica activa con HuggingFace"})
+    return jsonify({"status": "API médica activa con HuggingFace (FLAN-T5)"})
 
 @app.route("/analizar_pdf", methods=["POST"])
 def analizar_pdf():
@@ -39,12 +39,10 @@ def analizar_pdf():
         os.remove(pdf_path)
 
         prompt = f"""
-Eres un nutricionista y entrenador personal que trabaja en Colombia.
-Con base en este examen médico, genera una tabla con:
-- Recomendaciones alimenticias en comida colombiana (desayuno, comida, cena)
-- Actividad física adecuada (tipo, frecuencia y duración).
-Texto del examen médico:
-{text[:2000]}
+Eres un nutricionista que trabaja en Colombia.
+Con base en este examen médico, responde con recomendaciones alimenticias (desayuno, comida, cena) y tipo de actividad física para mejorar la salud del paciente.
+Texto del examen:
+{text[:1000]}
         """
 
         payload = {
