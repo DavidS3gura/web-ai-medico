@@ -2,17 +2,23 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tempfile
 import os
-from openai import OpenAI
+import requests
 from PyPDF2 import PdfReader
 
 app = Flask(__name__)
 CORS(app)
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")
+HUGGINGFACE_MODEL = "tiiuae/falcon-7b-instruct"  # Puedes cambiar por otro modelo si lo deseas
+
+headers = {
+    "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
+    "Content-Type": "application/json"
+}
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "API médica activa"})
+    return jsonify({"status": "API médica activa con HuggingFace"})
 
 @app.route("/analizar_pdf", methods=["POST"])
 def analizar_pdf():
@@ -30,26 +36,34 @@ def analizar_pdf():
     try:
         reader = PdfReader(pdf_path)
         text = "\n".join([page.extract_text() or "" for page in reader.pages])
+        os.remove(pdf_path)
 
         prompt = f"""
-Eres un nutricionista y entrenador personal que trabaja en Colombia. 
+Eres un nutricionista y entrenador personal que trabaja en Colombia.
 Con base en este examen médico, genera una tabla con:
 - Recomendaciones alimenticias en comida colombiana (desayuno, comida, cena)
 - Actividad física adecuada (tipo, frecuencia y duración).
 Texto del examen médico:
-{text[:3000]}
+{text[:2000]}
         """
 
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=800
+        payload = {
+            "inputs": prompt
+        }
+
+        response = requests.post(
+            f"https://api-inference.huggingface.co/models/{HUGGINGFACE_MODEL}",
+            headers=headers,
+            json=payload
         )
 
-        recomendaciones = response.choices[0].message.content
-        os.remove(pdf_path)
-        return jsonify({"recomendaciones": recomendaciones})
+        if response.status_code != 200:
+            return jsonify({"error": f"HuggingFace error: {response.text}"}), 500
+
+        data = response.json()
+        output = data[0]["generated_text"] if isinstance(data, list) and "generated_text" in data[0] else str(data)
+
+        return jsonify({"recomendaciones": output})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
