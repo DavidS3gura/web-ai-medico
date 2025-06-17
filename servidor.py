@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tempfile
@@ -9,7 +10,7 @@ app = Flask(__name__)
 CORS(app)
 
 HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")
-HUGGINGFACE_MODEL = "google/flan-t5-large"  # modelo confirmado activo en la API pública
+HUGGINGFACE_MODEL = "google/flan-t5-large"
 
 headers = {
     "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
@@ -18,7 +19,7 @@ headers = {
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "API médica activa con HuggingFace (FLAN-T5)"})
+    return jsonify({"status": "API médica activa con FLAN-T5"})
 
 @app.route("/analizar_pdf", methods=["POST"])
 def analizar_pdf():
@@ -38,15 +39,13 @@ def analizar_pdf():
         text = "\n".join([page.extract_text() or "" for page in reader.pages])
         os.remove(pdf_path)
 
-        prompt = f"""
-Eres un nutricionista que trabaja en Colombia.
-Con base en este examen médico, responde con recomendaciones alimenticias (desayuno, comida, cena) y tipo de actividad física para mejorar la salud del paciente.
-Texto del examen:
-{text[:1000]}
-        """
+        prompt = f"Recomienda dieta saludable para este paciente colombiano con base en este informe médico:\n{text[:800]}"
 
         payload = {
-            "inputs": prompt
+            "inputs": prompt,
+            "options": {
+                "wait_for_model": True
+            }
         }
 
         response = requests.post(
@@ -58,8 +57,16 @@ Texto del examen:
         if response.status_code != 200:
             return jsonify({"error": f"HuggingFace error: {response.text}"}), 500
 
-        data = response.json()
-        output = data[0]["generated_text"] if isinstance(data, list) and "generated_text" in data[0] else str(data)
+        try:
+            data = response.json()
+            if isinstance(data, list):
+                output = data[0].get("generated_text", "Sin respuesta generada.")
+            elif isinstance(data, dict):
+                output = data.get("generated_text") or str(data)
+            else:
+                output = str(data)
+        except Exception as e:
+            return jsonify({"error": f"Error al interpretar respuesta: {str(e)}"}), 500
 
         return jsonify({"recomendaciones": output})
 
