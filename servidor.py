@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 HUGGINGFACE_API_TOKEN = os.environ.get("HUGGINGFACE_API_TOKEN")
-HUGGINGFACE_MODEL = "tiiuae/falcon-7b-instruct"  # Puedes cambiar por otro modelo si lo deseas
+HUGGINGFACE_MODEL = "mistralai/Mistral-7B-Instruct-v0.1"
 
 headers = {
     "Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}",
