@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import tempfile
 import os
-import openai
-
-openai.api_key = "TU_API_KEY_DE_OPENAI"
+from openai import OpenAI
+from PyPDF2 import PdfReader
 
 app = Flask(__name__)
 CORS(app)
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 @app.route("/", methods=["GET"])
 def home():
@@ -27,7 +28,6 @@ def analizar_pdf():
         pdf_path = tmp.name
 
     try:
-        from PyPDF2 import PdfReader
         reader = PdfReader(pdf_path)
         text = "\n".join([page.extract_text() or "" for page in reader.pages])
 
@@ -40,23 +40,20 @@ Texto del examen médico:
 {text[:3000]}
         """
 
-        completion = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
             max_tokens=800
         )
 
-        recomendaciones = completion.choices[0].message['content']
+        recomendaciones = response.choices[0].message.content
         os.remove(pdf_path)
         return jsonify({"recomendaciones": recomendaciones})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-import os
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
