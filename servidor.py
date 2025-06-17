@@ -31,23 +31,16 @@ def analizar_pdf():
         reader = PdfReader(pdf_path)
         text = "\n".join([page.extract_text() or "" for page in reader.pages])
 
+        # Nuevo prompt con salida HTML directamente
         prompt = f"""
 Eres un nutricionista y entrenador personal que trabaja en Colombia.
 
-Con base en este examen médico, responde con **una tabla en formato Markdown**, organizada de la siguiente manera:
+Con base en este examen médico, responde únicamente con el código HTML de dos tablas, sin ningún texto adicional ni encabezado:
 
-1. Una tabla con recomendaciones alimenticias usando comida típica colombiana. Columnas:
-   - Comida (Desayuno, Almuerzo, Cena)
-   - Platillo recomendado
-   - Motivo (relacionado con el examen)
+1. Tabla de alimentación: columnas → Comida | Platillo recomendado | Motivo
+2. Tabla de actividad física: columnas → Tipo de actividad | Frecuencia | Duración | Motivo
 
-2. Una tabla con recomendaciones de actividad física. Columnas:
-   - Tipo de actividad
-   - Frecuencia semanal
-   - Duración por sesión
-   - Motivo médico
-
-**Solo devuelve las dos tablas. No incluyas explicaciones adicionales.**
+No incluyas explicaciones. Solo el código HTML de ambas tablas.
 
 Texto del examen médico:
 {text[:3000]}
@@ -60,9 +53,10 @@ Texto del examen médico:
             max_tokens=800
         )
 
-        recomendaciones = completion.choices[0].message['content']
+        html_tablas = completion.choices[0].message['content']
         os.remove(pdf_path)
-        return jsonify({"recomendaciones": recomendaciones})
+
+        return jsonify({"recomendaciones": html_tablas})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
