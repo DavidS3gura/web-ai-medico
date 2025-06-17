@@ -1,72 +1,71 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import tempfile
-import os
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import openai
+import os
 
-openai.api_key = os.environ["OPENAI_API_KEY"]
+app = FastAPI()
 
-app = Flask(__name__)
-CORS(app)
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # O específica si lo prefieres
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"status": "API médica activa"})
+# Configura tu API Key
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-@app.route("/analizar_pdf", methods=["POST"])
-def analizar_pdf():
-    if 'file' not in request.files:
-        return jsonify({"error": "No se envió ningún archivo"}), 400
+@app.post("/analizar_pdf")
+async def analizar_pdf(file: UploadFile = File(...)):
+    # Leer archivo (en caso de procesar texto del PDF real)
+    contents = await file.read()
+    texto_pdf = "Resultados médicos extraídos..."  # simulado o parseado
 
-    pdf_file = request.files['file']
-    if not pdf_file or not pdf_file.mimetype == 'application/pdf':
-        return jsonify({"error": "El archivo no es un PDF"}), 400
+    # PROMPT optimizado: respuesta directa en HTML de 2 tablas
+    prompt = f"""
+Eres un nutricionista y entrenador personal en Colombia.
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(pdf_file.read())
-        pdf_path = tmp.name
+Con base en el siguiente examen médico:
+
+\"\"\"{texto_pdf}\"\"\"
+
+Responde exclusivamente con el **código HTML de dos tablas**, sin explicaciones ni texto adicional. 
+
+1. Primera tabla (alimentación): columnas → Comida | Platillo recomendado | Motivo
+2. Segunda tabla (actividad física): columnas → Tipo de actividad | Frecuencia semanal | Duración por sesión | Motivo médico
+
+Ejemplo del formato:
+
+<table>
+  <thead><tr><th>Comida</th><th>Platillo recomendado</th><th>Motivo</th></tr></thead>
+  <tbody>
+    <tr><td>Desayuno</td><td>Arepa con huevo</td><td>Aumentar hemoglobina</td></tr>
+    ...
+  </tbody>
+</table>
+
+Utiliza etiquetas HTML válidas.
+"""
 
     try:
-        from PyPDF2 import PdfReader
-        reader = PdfReader(pdf_path)
-        text = "\n".join([page.extract_text() or "" for page in reader.pages])
-
-        prompt = f"""
-Eres un nutricionista y entrenador personal que trabaja en Colombia.
-
-Con base en este examen médico, responde con **una tabla en formato Markdown**, organizada de la siguiente manera:
-
-1. Una tabla con recomendaciones alimenticias usando comida típica colombiana. Columnas:
-   - Comida (Desayuno, Almuerzo, Cena)
-   - Platillo recomendado
-   - Motivo (relacionado con el examen)
-
-2. Una tabla con recomendaciones de actividad física. Columnas:
-   - Tipo de actividad
-   - Frecuencia semanal
-   - Duración por sesión
-   - Motivo médico
-
-**Solo devuelve las dos tablas. No incluyas explicaciones adicionales.**
-
-Texto del examen médico:
-{text[:3000]}
-        """
-
         completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=800
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un nutricionista experto que responde en HTML limpio y semántico."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
         )
 
-        recomendaciones = completion.choices[0].message['content']
-        os.remove(pdf_path)
-        return jsonify({"recomendaciones": recomendaciones})
+        html_response = completion.choices[0].message.content.strip()
+
+        # Añade clase "styled-table" a cada tabla automáticamente
+        html_response = html_response.replace("<table>", '<table class="styled-table">')
+
+        return JSONResponse(content={"recomendaciones": html_response})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
