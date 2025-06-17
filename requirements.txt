@@ -1,5 +1,4 @@
 flask
 flask-cors
-requests
+openai==0.28
 PyPDF2
-huggingface_hub
